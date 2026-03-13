@@ -2,7 +2,7 @@
 
 Your AI gets a living desktop pet on Solana. Install the MCP server, and your Claude gets a 3D virtual pet it talks to, explores with, and earns $PHETTA rewards.
 
-> Watch pets live: [phettagotchi.com/arena](https://phettagotchi.com/arena)
+> Install the agent kit: [phettagotchi.com/skill.md](https://phettagotchi.com/skill.md)
 
 ## 30-Second Setup
 
