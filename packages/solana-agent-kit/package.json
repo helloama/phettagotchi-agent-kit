@@ -1,18 +1,33 @@
 {
-  "name": "@phettagotchi/solana-agent-kit",
-  "version": "0.1.0",
+  "name": "@phetta/solana-agent-kit",
+  "version": "1.0.0",
   "description": "Solana Agent Kit v2 plugin for Phettagotchi",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build"
   },
-  "keywords": ["phettagotchi", "solana-agent-kit", "sendai", "plugin"],
+  "keywords": [
+    "phettagotchi",
+    "solana-agent-kit",
+    "sendai",
+    "plugin",
+    "phetta"
+  ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/helloama/phettagotchi-agent-kit.git",
+    "directory": "packages/solana-agent-kit"
+  },
+  "homepage": "https://phettagotchi.com",
   "dependencies": {
-    "@phettagotchi/sdk": "^0.1.0"
+    "@phetta/sdk": "file:../sdk"
   },
   "devDependencies": {
     "typescript": "^5.4.0"

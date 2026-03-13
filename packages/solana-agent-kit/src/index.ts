@@ -7,7 +7,7 @@
  *   agent.use(phettagotchiPlugin);
  */
 
-import { PhettagotchiClient } from '@phettagotchi/sdk';
+import { PhettagotchiClient } from '@phetta/sdk';
 
 export interface PhettagotchiPluginConfig {
   baseUrl?: string;

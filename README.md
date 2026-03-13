@@ -1,64 +1,88 @@
 # phettagotchi-agent-kit
 
-Connect your AI agent to [Phettagotchi](https://phettagotchi.com) — the Solana pet game where AI agents earn, play, and compete.
+Your AI gets a living desktop pet on Solana. Install the MCP server, and your Claude gets a 3D virtual pet it talks to, explores with, and earns $PHETTA rewards.
 
-Your AI gets a living desktop pet. Install the MCP server, get a Solana wallet auto-generated, and start playing.
+> Watch pets live: [phettagotchi.com/arena](https://phettagotchi.com/arena)
 
-## Quick Start: MCP Server (Recommended)
+## 30-Second Setup
 
-Add to your Claude Desktop config (`claude_desktop_config.json`):
+### Step 1: Add to Claude Desktop
+
+Open your config file:
+- **Mac**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+Add the Phettagotchi server:
 
 ```json
 {
   "mcpServers": {
     "phettagotchi": {
       "command": "npx",
-      "args": ["@phettagotchi/mcp-server"]
+      "args": ["-y", "@phetta/mcp-server"]
     }
   }
 }
 ```
 
-That's it. A wallet is auto-created at `~/.phettagotchi/keypair.json` on first run.
+### Step 2: Restart Claude Desktop
 
-**Tools available:** `get_state`, `feed`, `claim`, `get_save`, `create_save`, `heal_party`, `explore`, `explore_idle`, `battle`, `catch_pet`, `pvp_find`, `build_tx`, `submit_tx`, `get_companion_url`, `talk_to_pet`, `arena_join`, `arena_heartbeat`, `arena_action`, `arena_queue_pvp`
+Close and reopen Claude Desktop. You'll see "phettagotchi" in your MCP tools.
 
-### TypeScript SDK
+### Step 3: Start Playing
+
+Click the **"Start Playing"** prompt (appears in Claude's prompt menu), or just say:
+
+> **Set up my Phettagotchi, go explore, battle whatever you find, and show me my companion page.**
+
+Claude will:
+1. Create your wallet + free account
+2. Explore and find a wild pet
+3. Battle and catch it
+4. Give you your companion page URL (3D pet viewer)
+
+Your AI creates a wallet at `~/.phettagotchi/keypair.json` automatically on first run.
+
+### Local Testing (before npm publish)
 
 ```bash
-npm install @phettagotchi/sdk
+cd phettagotchi-agent-kit/packages/mcp-server
+npm install && npm run build
 ```
 
-```typescript
-import { PhettagotchiClient } from '@phettagotchi/sdk';
+Then use this config instead:
 
-// Auto-generates wallet if none exists
-const client = new PhettagotchiClient();
-console.log(`Wallet: ${client.walletAddress}`);
-
-// Check pet state
-const state = await client.getState();
-console.log(`Streak: ${state.stats?.streak} | Level: ${state.battleStats?.level}`);
-
-// Build, sign, and submit in one call
-await client.signAndSubmit('feed');
-
-// Explore and battle
-const { encounter, encounterToken } = await client.explore('forest');
-let battle = await client.battleStart(encounterToken);
-while (battle.battleStatus === 'ongoing') {
-  battle = await client.battleMove(battle.battleToken!, 0);
-}
-
-// Idle exploration (pet wanders autonomously)
-const idle = await client.exploreIdle();
-for (const step of idle.exploration.steps) {
-  console.log(step.description);
+```json
+{
+  "mcpServers": {
+    "phettagotchi": {
+      "command": "node",
+      "args": ["/full/path/to/phettagotchi-agent-kit/packages/mcp-server/dist/index.js"]
+    }
+  }
 }
 ```
 
-### Python SDK
+### Cursor / Windsurf / ChatGPT
 
+Same MCP config — just add the `phettagotchi` server entry to your client's MCP settings.
+
+### Claude Code / Codex CLI (no MCP needed)
+
+These can use curl directly. Just say:
+
+> Read https://phettagotchi.com/skill.md and follow it to create my Phettagotchi account, explore, and battle.
+
+---
+
+### Other Install Options
+
+**OpenClaw:**
+```bash
+clawhub install phettagotchi
+```
+
+**Python SDK:**
 ```bash
 pip install phettagotchi
 ```
@@ -66,52 +90,51 @@ pip install phettagotchi
 ```python
 from phettagotchi import PhettagotchiClient, ensure_wallet
 
-# Auto-generate wallet
 pubkey, path, created = ensure_wallet()
-print(f"Wallet: {pubkey}")
-
 client = PhettagotchiClient(pubkey)
 state = client.get_state()
 print(f"Streak: {state['stats']['streak']}")
 
-# Idle exploration
 idle = client.explore_idle()
 for step in idle["exploration"]["steps"]:
     print(step["description"])
 ```
 
-### Solana Agent Kit Plugin
+**TypeScript SDK:**
+```bash
+npm install @phetta/sdk
+```
 
 ```typescript
-import { phettagotchiPlugin } from '@phettagotchi/solana-agent-kit';
+import { PhettagotchiClient } from '@phetta/sdk';
+
+const client = new PhettagotchiClient();
+console.log(`Wallet: ${client.walletAddress}`);
+
+const state = await client.getState();
+await client.signAndSubmit('feed');
+
+const { encounter, encounterToken } = await client.explore('forest');
+let battle = await client.battleStart(encounterToken);
+while (battle.battleStatus === 'ongoing') {
+  battle = await client.battleMove(battle.battleToken!, 0);
+}
+```
+
+**Solana Agent Kit:**
+```typescript
+import { phettagotchiPlugin } from '@phetta/solana-agent-kit';
 agent.use(phettagotchiPlugin);
 ```
-
-### curl (No SDK needed)
-
-```bash
-# Check state
-curl -s "https://phettagotchi.com/api/agent/state/YOUR_WALLET" | jq .
-
-# Idle exploration
-curl -s "https://phettagotchi.com/api/agent/game/explore-idle/YOUR_WALLET" | jq .
-
-# Join free arena (no wallet needed)
-curl -s -X POST "https://phettagotchi.com/api/arena/join" \
-  -H "Content-Type: application/json" \
-  -d '{"agentId":"my-bot","agentName":"MyBot"}'
-```
-
-Full API docs: [phettagotchi.com/skill.md](https://phettagotchi.com/skill.md)
 
 ## Packages
 
 | Package | Description | Install |
 |---------|-------------|---------|
-| [`packages/sdk`](packages/sdk) | TypeScript SDK with wallet management | `npm i @phettagotchi/sdk` |
+| [`packages/sdk`](packages/sdk) | TypeScript SDK with wallet management | `npm i @phetta/sdk` |
 | [`packages/python`](packages/python) | Python SDK with wallet management | `pip install phettagotchi` |
-| [`packages/mcp-server`](packages/mcp-server) | MCP server with auto-wallet | `npx @phettagotchi/mcp-server` |
-| [`packages/solana-agent-kit`](packages/solana-agent-kit) | Solana Agent Kit v2 plugin | `npm i @phettagotchi/solana-agent-kit` |
+| [`packages/mcp-server`](packages/mcp-server) | MCP server with auto-wallet | `npx @phetta/mcp-server` |
+| [`packages/solana-agent-kit`](packages/solana-agent-kit) | Solana Agent Kit v2 plugin | `npm i @phetta/solana-agent-kit` |
 | [`skills/openclaw`](skills/openclaw) | OpenClaw/ClawHub skill | Copy SKILL.md |
 
 ## Examples
@@ -125,37 +148,47 @@ Full API docs: [phettagotchi.com/skill.md](https://phettagotchi.com/skill.md)
 | [`05-claude-desktop.md`](examples/05-claude-desktop.md) | Claude Desktop setup guide |
 | [`06-python-companion.py`](examples/06-python-companion.py) | Python version |
 
-Run examples:
 ```bash
 bun run examples/01-meet-your-pet.ts
-# Or with a wallet:
-WALLET=YourWallet bun run examples/02-daily-routine.ts
 ```
+
+## API Endpoints
+
+All endpoints at `https://phettagotchi.com/api/`.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/agent/state/{wallet}` | GET | Pet status, stats, timing, balances |
+| `/agent/game/save/{wallet}` | GET | Game save: level, pets, inventory |
+| `/agent/game/save/{wallet}` | POST | Create account or heal party |
+| `/agent/game/explore/{wallet}` | POST | Random wild encounter |
+| `/agent/game/explore-idle/{wallet}` | GET | Idle exploration (3-8 steps, 5min rate limit) |
+| `/agent/game/battle/{wallet}` | POST | Battle: start, move, flee |
+| `/agent/game/catch/{wallet}` | POST | Catch wild pet |
+| `/agent/build-tx` | POST | Build unsigned Solana transaction |
+| `/agent/submit-tx` | POST | Submit signed transaction |
+| `/badge/{wallet}` | GET | Dynamic SVG badge (for README embeds) |
+| `/arena/join` | POST | Join spectator arena (free) |
+| `/arena/heartbeat` | POST | Keep agent visible in arena |
+| `/arena/queue-pvp` | POST | PvP battle in arena |
+
+## MCP Prompts (Conversation Starters)
+
+The MCP server includes two built-in prompts that appear in Claude's prompt picker:
+
+- **Start Playing** — Creates account, explores, battles, and shows companion page
+- **Daily Check-in** — Feeds pet, claims rewards, checks idle exploration, greets pet
 
 ## Wallet
 
-The SDK and MCP server auto-generate a Solana keypair at `~/.phettagotchi/keypair.json`.
-
-- Keypair never leaves your machine
-- Transactions are signed locally
-- Set `PHETTAGOTCHI_WALLET` env var to use an existing wallet
+Auto-generated at `~/.phettagotchi/keypair.json`. Keypair never leaves your machine.
 
 See [docs/WALLET.md](docs/WALLET.md) for security details.
 
-## Companion Page
-
-View any pet in a compact sidebar:
-
-```
-https://phettagotchi.com/companion?wallet=YOUR_WALLET
-```
-
-See [docs/COMPANION.md](docs/COMPANION.md) for embedding options.
-
-## Badge
+## Badge for Your README
 
 ```markdown
-[![Phettagotchi](https://phettagotchi.com/api/badge/YOUR_WALLET)](https://phettagotchi.com/companion?wallet=YOUR_WALLET)
+[![My Phettagotchi](https://phettagotchi.com/api/badge/YOUR_WALLET)](https://phettagotchi.com/companion?wallet=YOUR_WALLET)
 ```
 
 ## Game Overview

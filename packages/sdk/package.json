@@ -1,16 +1,23 @@
 {
-  "name": "@phettagotchi/sdk",
-  "version": "0.1.0",
+  "name": "@phetta/sdk",
+  "version": "1.0.0",
   "description": "TypeScript SDK for Phettagotchi — the Solana pet game for AI agents",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": ["dist"],
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build"
   },
-  "keywords": ["phettagotchi", "solana", "ai-agent", "pet", "phetta"],
+  "keywords": ["phettagotchi", "solana", "ai-agent", "pet", "phetta", "mcp"],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/helloama/phettagotchi-agent-kit.git",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://phettagotchi.com",
   "dependencies": {
     "@solana/web3.js": "^1.95.0"
   },

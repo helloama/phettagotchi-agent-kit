@@ -1,7 +1,8 @@
 {
-  "name": "@phettagotchi/mcp-server",
-  "version": "0.1.0",
-  "description": "MCP server for Phettagotchi — use with Claude Desktop, Cursor, or ChatGPT",
+  "name": "@phetta/mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for Phettagotchi — use with Claude Desktop, Cursor, or any MCP client",
+  "type": "module",
   "main": "dist/index.js",
   "bin": {
     "phettagotchi-mcp": "./dist/index.js"
@@ -9,12 +10,21 @@
   "files": ["dist"],
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build"
   },
-  "keywords": ["mcp", "phettagotchi", "claude", "ai-agent"],
+  "keywords": ["mcp", "phettagotchi", "claude", "ai-agent", "phetta", "cursor"],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/helloama/phettagotchi-agent-kit.git",
+    "directory": "packages/mcp-server"
+  },
+  "homepage": "https://phettagotchi.com",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0"
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@solana/web3.js": "^1.95.0"
   },
   "devDependencies": {
     "typescript": "^5.4.0",

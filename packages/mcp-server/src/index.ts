@@ -25,6 +25,8 @@ import {
   ListToolsRequestSchema,
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 
 // Tool modules
@@ -34,6 +36,13 @@ import * as battle from './tools/battle.js';
 import * as companion from './tools/companion.js';
 import * as arena from './tools/arena.js';
 import * as transactions from './tools/transactions.js';
+
+import { createRequire } from 'module';
+import * as os from 'os';
+import * as path from 'path';
+import * as fs from 'fs';
+
+const require = createRequire(import.meta.url);
 
 const BASE_URL = process.env.PHETTAGOTCHI_URL || 'https://phettagotchi.com';
 
@@ -47,10 +56,6 @@ function getWallet(): string {
 
   // 2. Auto-generate from ~/.phettagotchi/keypair.json
   try {
-    const os = require('os');
-    const path = require('path');
-    const fs = require('fs');
-
     const keypairPath = path.join(os.homedir(), '.phettagotchi', 'keypair.json');
 
     if (fs.existsSync(keypairPath)) {
@@ -74,7 +79,7 @@ function getWallet(): string {
     console.error(`[phettagotchi] Keypair saved to: ${keypairPath}`);
     console.error(`[phettagotchi] Fund with 0.05 SOL + $PHETTA to hatch your pet!`);
     return wallet;
-  } catch {
+  } catch (e) {
     // Fallback: no wallet
     console.error('[phettagotchi] No wallet configured. Set PHETTAGOTCHI_WALLET or install @solana/web3.js');
     return '';
@@ -129,7 +134,7 @@ for (const mod of [petCare, explore, battle, companion, arena, transactions]) {
 
 const server = new Server(
   { name: 'phettagotchi', version: '1.0.0' },
-  { capabilities: { tools: {}, resources: {} } },
+  { capabilities: { tools: {}, resources: {}, prompts: {} } },
 );
 
 // ── Tools ─────────────────────────────────────────────────────
@@ -198,6 +203,70 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
       text: JSON.stringify(data, null, 2),
     }],
   };
+});
+
+// ── Prompts (Conversation Starters) ──────────────────────────
+
+server.setRequestHandler(ListPromptsRequestSchema, async () => ({
+  prompts: [
+    {
+      name: 'start-playing',
+      description: 'Get started with your Phettagotchi pet — set up account, explore, and see your companion page.',
+    },
+    {
+      name: 'daily-check-in',
+      description: 'Do the daily routine: check status, feed if possible, explore, and report back.',
+    },
+  ],
+}));
+
+server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+  const { name } = request.params;
+
+  if (name === 'start-playing') {
+    return {
+      messages: [{
+        role: 'user' as const,
+        content: {
+          type: 'text' as const,
+          text: `You have Phettagotchi tools available! Here's what to do:
+
+1. Call get_state to check if I already have a pet
+2. Call create_save to set up my game account if needed
+3. Call explore to find a wild pet in the world
+4. If you find one, call battle with action "start" and the encounterToken, then battle with action "move" to fight
+5. If you win, call catch_pet with the battleToken
+6. Call get_companion_url to give me the URL to see my 3D pet
+7. Call talk_to_pet to say hi
+
+Narrate everything like a fun adventure! Tell me my companion page URL at the end so I can watch my pet.`,
+        },
+      }],
+    };
+  }
+
+  if (name === 'daily-check-in') {
+    return {
+      messages: [{
+        role: 'user' as const,
+        content: {
+          type: 'text' as const,
+          text: `Do my daily Phettagotchi routine:
+
+1. get_state — How is my pet doing?
+2. feed — Feed if the timing shows canFeed is true (skip if no on-chain pet)
+3. claim — Claim if pending rewards > 0
+4. explore_idle — What did my pet find while wandering?
+5. If there are encounters, battle the strongest one
+6. talk_to_pet with a morning greeting
+
+Give me a quick summary of everything that happened.`,
+        },
+      }],
+    };
+  }
+
+  throw new Error(`Unknown prompt: ${name}`);
 });
 
 // ── Start ─────────────────────────────────────────────────────
