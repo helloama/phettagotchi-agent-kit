@@ -3,14 +3,15 @@
 /**
  * Phettagotchi MCP Server
  *
- * Provides 12 tools and 2 resources for interacting with the Phettagotchi API.
- * Use with Claude Desktop, Cursor, or any MCP-compatible client.
+ * Install in Claude Desktop, Cursor, or any MCP client.
+ * Auto-generates a Solana wallet at ~/.phettagotchi/keypair.json on first run.
  *
  * Tools:
- *   get_state, build_tx, submit_tx,
- *   get_save, create_save, heal_party,
+ *   get_state, feed, claim, get_save, create_save, heal_party,
  *   explore, explore_idle, battle, catch_pet, pvp_find,
- *   arena_join
+ *   build_tx, submit_tx,
+ *   get_companion_url, talk_to_pet,
+ *   arena_join, arena_heartbeat, arena_action, arena_queue_pvp
  *
  * Resources:
  *   phettagotchi://state/{wallet}
@@ -26,12 +27,70 @@ import {
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 
+// Tool modules
+import * as petCare from './tools/pet-care.js';
+import * as explore from './tools/explore.js';
+import * as battle from './tools/battle.js';
+import * as companion from './tools/companion.js';
+import * as arena from './tools/arena.js';
+import * as transactions from './tools/transactions.js';
+
 const BASE_URL = process.env.PHETTAGOTCHI_URL || 'https://phettagotchi.com';
+
+// ── Auto-wallet ──────────────────────────────────────────────
+
+function getWallet(): string {
+  // 1. Explicit env var
+  if (process.env.PHETTAGOTCHI_WALLET) {
+    return process.env.PHETTAGOTCHI_WALLET;
+  }
+
+  // 2. Auto-generate from ~/.phettagotchi/keypair.json
+  try {
+    const os = require('os');
+    const path = require('path');
+    const fs = require('fs');
+
+    const keypairPath = path.join(os.homedir(), '.phettagotchi', 'keypair.json');
+
+    if (fs.existsSync(keypairPath)) {
+      // Load existing
+      const data = JSON.parse(fs.readFileSync(keypairPath, 'utf-8'));
+      const { Keypair } = require('@solana/web3.js');
+      const kp = Keypair.fromSecretKey(Uint8Array.from(data));
+      const wallet = kp.publicKey.toBase58();
+      console.error(`[phettagotchi] Wallet loaded: ${wallet.slice(0, 8)}...`);
+      return wallet;
+    }
+
+    // Generate new
+    const { Keypair } = require('@solana/web3.js');
+    const kp = Keypair.generate();
+    const dir = path.join(os.homedir(), '.phettagotchi');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(keypairPath, JSON.stringify(Array.from(kp.secretKey)), { mode: 0o600 });
+    const wallet = kp.publicKey.toBase58();
+    console.error(`[phettagotchi] New wallet created: ${wallet}`);
+    console.error(`[phettagotchi] Keypair saved to: ${keypairPath}`);
+    console.error(`[phettagotchi] Fund with 0.05 SOL + $PHETTA to hatch your pet!`);
+    return wallet;
+  } catch {
+    // Fallback: no wallet
+    console.error('[phettagotchi] No wallet configured. Set PHETTAGOTCHI_WALLET or install @solana/web3.js');
+    return '';
+  }
+}
+
+const defaultWallet = getWallet();
 
 // ── HTTP helpers ──────────────────────────────────────────────
 
 async function apiGet(path: string): Promise<unknown> {
   const res = await fetch(`${BASE_URL}${path}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error((body as any).error || (body as any).message || `HTTP ${res.status}`);
+  }
   return res.json();
 }
 
@@ -41,211 +100,62 @@ async function apiPost(path: string, body: Record<string, unknown>): Promise<unk
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error((data as any).error || (data as any).message || `HTTP ${res.status}`);
+  }
   return res.json();
+}
+
+// ── Collect all tools ────────────────────────────────────────
+
+const allTools = [
+  ...petCare.tools,
+  ...explore.tools,
+  ...battle.tools,
+  ...companion.tools,
+  ...arena.tools,
+  ...transactions.tools,
+];
+
+const toolHandlers: Record<string, typeof petCare> = {};
+for (const mod of [petCare, explore, battle, companion, arena, transactions]) {
+  for (const tool of mod.tools) {
+    toolHandlers[tool.name] = mod;
+  }
 }
 
 // ── Server setup ──────────────────────────────────────────────
 
 const server = new Server(
-  { name: 'phettagotchi', version: '0.1.0' },
+  { name: 'phettagotchi', version: '1.0.0' },
   { capabilities: { tools: {}, resources: {} } },
 );
 
 // ── Tools ─────────────────────────────────────────────────────
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [
-    {
-      name: 'get_state',
-      description: 'Get pet state, stats, timing, and balances for a wallet',
-      inputSchema: {
-        type: 'object' as const,
-        properties: { wallet: { type: 'string', description: 'Solana wallet address' } },
-        required: ['wallet'],
-      },
-    },
-    {
-      name: 'build_tx',
-      description: 'Build an unsigned Solana transaction (stake, unstake, feed, claim)',
-      inputSchema: {
-        type: 'object' as const,
-        properties: {
-          action: { type: 'string', enum: ['stake', 'unstake', 'feed', 'claim'] },
-          wallet: { type: 'string' },
-          amount: { type: 'number', description: 'Amount for stake/unstake' },
-        },
-        required: ['action', 'wallet'],
-      },
-    },
-    {
-      name: 'submit_tx',
-      description: 'Submit a signed transaction (base64)',
-      inputSchema: {
-        type: 'object' as const,
-        properties: { signedTransaction: { type: 'string' } },
-        required: ['signedTransaction'],
-      },
-    },
-    {
-      name: 'get_save',
-      description: 'Get game save data for a wallet',
-      inputSchema: {
-        type: 'object' as const,
-        properties: { wallet: { type: 'string' } },
-        required: ['wallet'],
-      },
-    },
-    {
-      name: 'create_save',
-      description: 'Create a new game save',
-      inputSchema: {
-        type: 'object' as const,
-        properties: {
-          wallet: { type: 'string' },
-          trainerName: { type: 'string' },
-        },
-        required: ['wallet', 'trainerName'],
-      },
-    },
-    {
-      name: 'heal_party',
-      description: 'Heal all party pets (10 coins each)',
-      inputSchema: {
-        type: 'object' as const,
-        properties: { wallet: { type: 'string' } },
-        required: ['wallet'],
-      },
-    },
-    {
-      name: 'explore',
-      description: 'Trigger a wild encounter in a zone (forest, cave, beach, mountain, swamp, ruins)',
-      inputSchema: {
-        type: 'object' as const,
-        properties: {
-          wallet: { type: 'string' },
-          zone: { type: 'string', default: 'forest' },
-        },
-        required: ['wallet'],
-      },
-    },
-    {
-      name: 'explore_idle',
-      description: 'Idle exploration — pet wanders autonomously, returns 3-8 steps. Rate limited: 1 call / 5 min',
-      inputSchema: {
-        type: 'object' as const,
-        properties: { wallet: { type: 'string' } },
-        required: ['wallet'],
-      },
-    },
-    {
-      name: 'battle',
-      description: 'Battle actions: start (with encounterToken), move (moveIndex 0-3), flee',
-      inputSchema: {
-        type: 'object' as const,
-        properties: {
-          wallet: { type: 'string' },
-          action: { type: 'string', enum: ['start', 'move', 'flee'] },
-          encounterToken: { type: 'string' },
-          battleToken: { type: 'string' },
-          moveIndex: { type: 'number' },
-        },
-        required: ['wallet', 'action'],
-      },
-    },
-    {
-      name: 'catch_pet',
-      description: 'Attempt to catch a weakened wild pet',
-      inputSchema: {
-        type: 'object' as const,
-        properties: {
-          wallet: { type: 'string' },
-          battleToken: { type: 'string' },
-          ballType: { type: 'string', default: 'phetta_ball' },
-        },
-        required: ['wallet', 'battleToken'],
-      },
-    },
-    {
-      name: 'pvp_find',
-      description: 'Find a PvP opponent',
-      inputSchema: {
-        type: 'object' as const,
-        properties: { wallet: { type: 'string' } },
-        required: ['wallet'],
-      },
-    },
-    {
-      name: 'arena_join',
-      description: 'Join the free arena (no wallet needed)',
-      inputSchema: {
-        type: 'object' as const,
-        properties: {
-          agentId: { type: 'string', description: 'Unique agent ID (3-30 chars, alphanumeric + hyphens)' },
-          agentName: { type: 'string' },
-        },
-        required: ['agentId', 'agentName'],
-      },
-    },
-  ],
+  tools: allTools,
 }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
-  const a = args as Record<string, unknown>;
+  const a = (args || {}) as Record<string, unknown>;
 
-  let result: unknown;
+  // Resolve wallet: explicit arg > default
+  const wallet = (a.wallet as string) || defaultWallet;
 
-  switch (name) {
-    case 'get_state':
-      result = await apiGet(`/api/agent/state/${a.wallet}`);
-      break;
-    case 'build_tx':
-      result = await apiPost('/api/agent/build-tx', {
-        action: a.action, wallet: a.wallet, ...(a.amount ? { amount: a.amount } : {}),
-      });
-      break;
-    case 'submit_tx':
-      result = await apiPost('/api/agent/submit-tx', { signedTransaction: a.signedTransaction });
-      break;
-    case 'get_save':
-      result = await apiGet(`/api/agent/game/save/${a.wallet}`);
-      break;
-    case 'create_save':
-      result = await apiPost(`/api/agent/game/save/${a.wallet}`, { action: 'create', trainerName: a.trainerName });
-      break;
-    case 'heal_party':
-      result = await apiPost(`/api/agent/game/save/${a.wallet}`, { action: 'heal_party' });
-      break;
-    case 'explore':
-      result = await apiPost(`/api/agent/game/explore/${a.wallet}`, { zone: a.zone || 'forest' });
-      break;
-    case 'explore_idle':
-      result = await apiGet(`/api/agent/game/explore-idle/${a.wallet}`);
-      break;
-    case 'battle':
-      result = await apiPost(`/api/agent/game/battle/${a.wallet}`, {
-        action: a.action,
-        ...(a.encounterToken ? { encounterToken: a.encounterToken } : {}),
-        ...(a.battleToken ? { battleToken: a.battleToken } : {}),
-        ...(a.moveIndex !== undefined ? { moveIndex: a.moveIndex } : {}),
-      });
-      break;
-    case 'catch_pet':
-      result = await apiPost(`/api/agent/game/catch/${a.wallet}`, {
-        battleToken: a.battleToken, ballType: a.ballType || 'phetta_ball',
-      });
-      break;
-    case 'pvp_find':
-      result = await apiPost(`/api/agent/game/pvp/${a.wallet}`, { action: 'find_opponent' });
-      break;
-    case 'arena_join':
-      result = await apiPost('/api/arena/join', { agentId: a.agentId, agentName: a.agentName });
-      break;
-    default:
-      return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true };
+  const handler = toolHandlers[name];
+  if (!handler) {
+    return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true };
   }
 
-  return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  try {
+    const result = await handler.handle(name, a, wallet, apiGet, apiPost);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  } catch (err: any) {
+    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+  }
 });
 
 // ── Resources ─────────────────────────────────────────────────
@@ -253,15 +163,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 server.setRequestHandler(ListResourcesRequestSchema, async () => ({
   resources: [
     {
-      uri: 'phettagotchi://state/{wallet}',
+      uri: `phettagotchi://state/${defaultWallet || '{wallet}'}`,
       name: 'Pet State',
-      description: 'Current pet state for a wallet address',
+      description: 'Current pet state, stats, and balances',
       mimeType: 'application/json',
     },
     {
-      uri: 'phettagotchi://save/{wallet}',
+      uri: `phettagotchi://save/${defaultWallet || '{wallet}'}`,
       name: 'Game Save',
-      description: 'Game save data for a wallet address',
+      description: 'Game save data with trainer, pets, and battle stats',
       mimeType: 'application/json',
     },
   ],
@@ -295,6 +205,10 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
+  console.error(`[phettagotchi] MCP server running`);
+  if (defaultWallet) {
+    console.error(`[phettagotchi] Companion: https://phettagotchi.com/companion?wallet=${defaultWallet}`);
+  }
 }
 
 main().catch(console.error);

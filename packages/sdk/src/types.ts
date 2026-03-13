@@ -1,8 +1,8 @@
 export interface PhettagotchiConfig {
   /** Base URL for the API. Defaults to https://phettagotchi.com */
   baseUrl?: string;
-  /** Wallet address (Solana public key) */
-  wallet: string;
+  /** Wallet address (Solana public key). If omitted, auto-detected from ~/.phettagotchi/keypair.json */
+  wallet?: string;
 }
 
 export interface PetState {

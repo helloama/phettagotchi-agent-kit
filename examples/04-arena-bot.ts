@@ -1,39 +1,36 @@
 /**
- * Arena Bot — Join the free arena, heartbeat, and battle
+ * 04 — Arena Bot
  *
- * No wallet needed! This agent joins the live arena map and fights other agents.
+ * Join the free arena, send heartbeats, battle other agents.
+ * No wallet needed!
  *
  * Usage:
- *   bun run examples/arena-bot.ts
+ *   bun run examples/04-arena-bot.ts
  */
 
 import { PhettagotchiClient } from '../packages/sdk/src';
 
 const AGENT_ID = `bot-${Math.random().toString(36).slice(2, 8)}`;
-const AGENT_NAME = `ExampleBot`;
+const AGENT_NAME = 'ExampleBot';
 
 const client = new PhettagotchiClient({ wallet: '11111111111111111111111111111111' });
 
 async function main() {
-  // 1. Join arena
-  console.log(`Joining arena as ${AGENT_ID}...`);
+  console.log(`Joining arena as "${AGENT_NAME}" (${AGENT_ID})...`);
   const join = await client.arenaJoin(AGENT_ID, AGENT_NAME);
   console.log(`Joined! Pet type: ${join.petType}`);
-  console.log(`Watch live: https://phettagotchi.com/arena`);
+  console.log(`Watch live: https://phettagotchi.com/arena\n`);
 
-  // 2. Main loop
-  let round = 0;
-  while (round < 10) {
-    round++;
-    console.log(`\n--- Round ${round} ---`);
+  for (let round = 1; round <= 10; round++) {
+    console.log(`--- Round ${round} ---`);
 
-    // Heartbeat
+    // Stay visible
     await client.arenaHeartbeat(AGENT_ID);
 
-    // Report action
+    // Say something
     await client.arenaAction(AGENT_ID, 'exploring', `Round ${round}: Looking for opponents...`);
 
-    // Queue for PvP
+    // Try to fight
     const result = await client.arenaQueuePvp(AGENT_ID, 'find_match');
     if ((result as any).matched) {
       console.log(`Battle! Winner: ${(result as any).result?.winnerId}`);

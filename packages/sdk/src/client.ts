@@ -9,6 +9,7 @@ import type {
   BuildTxResult,
   LeaderboardEntry,
 } from './types';
+import { ensureWallet, signBase64Transaction } from './wallet';
 
 const DEFAULT_BASE_URL = 'https://phettagotchi.com';
 
@@ -16,9 +17,30 @@ export class PhettagotchiClient {
   private baseUrl: string;
   private wallet: string;
 
-  constructor(config: PhettagotchiConfig) {
-    this.baseUrl = (config.baseUrl || DEFAULT_BASE_URL).replace(/\/$/, '');
-    this.wallet = config.wallet;
+  constructor(config?: PhettagotchiConfig) {
+    this.baseUrl = (config?.baseUrl || DEFAULT_BASE_URL).replace(/\/$/, '');
+    if (config?.wallet) {
+      this.wallet = config.wallet;
+    } else {
+      // Auto-detect from ~/.phettagotchi/keypair.json
+      const { publicKey } = ensureWallet();
+      this.wallet = publicKey;
+    }
+  }
+
+  /** Get the wallet address */
+  get walletAddress(): string {
+    return this.wallet;
+  }
+
+  /** Build, sign locally, and submit a transaction in one call */
+  async signAndSubmit(action: string, amount?: number): Promise<{ signature?: string; error?: string }> {
+    const buildResult = await this.buildTx(action, amount);
+    if (buildResult.error || !buildResult.transaction) {
+      throw new Error(buildResult.error || 'No transaction returned');
+    }
+    const signedTx = signBase64Transaction(buildResult.transaction);
+    return this.submitTx(signedTx);
   }
 
   // ========================================
