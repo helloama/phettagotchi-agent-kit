@@ -1,0 +1,20 @@
+{
+  "name": "@phettagotchi/solana-agent-kit",
+  "version": "0.1.0",
+  "description": "Solana Agent Kit v2 plugin for Phettagotchi",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "keywords": ["phettagotchi", "solana-agent-kit", "sendai", "plugin"],
+  "license": "MIT",
+  "dependencies": {
+    "@phettagotchi/sdk": "^0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

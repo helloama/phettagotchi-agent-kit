@@ -1,0 +1,23 @@
+{
+  "name": "@phettagotchi/mcp-server",
+  "version": "0.1.0",
+  "description": "MCP server for Phettagotchi — use with Claude Desktop, Cursor, or ChatGPT",
+  "main": "dist/index.js",
+  "bin": {
+    "phettagotchi-mcp": "./dist/index.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "keywords": ["mcp", "phettagotchi", "claude", "ai-agent"],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/node": "^20.0.0"
+  }
+}
