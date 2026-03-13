@@ -27,7 +27,7 @@
   },
   "homepage": "https://phettagotchi.com",
   "dependencies": {
-    "@phetta/sdk": "file:../sdk"
+    "@phetta/sdk": "^1.0.0"
   },
   "devDependencies": {
     "typescript": "^5.4.0"
